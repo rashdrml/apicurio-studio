@@ -1,0 +1,100 @@
+# Apicurio WS Deployment Configuration
+# #####################################
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    creationTimestamp: null
+    labels:
+      app: apicurio-studio-ws
+      template: apicurio-studio
+    name: apicurio-studio-ws
+  spec:
+    replicas: 1
+    selector:
+      app: apicurio-studio-ws
+      deploymentconfig: apicurio-studio-ws
+    strategy:
+      type: Recreate
+      recreateParams:
+        timeoutSeconds: 600
+      resources: {}
+      activeDeadlineSeconds: 21600
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          app: apicurio-studio-ws
+          deploymentconfig: apicurio-studio-ws
+          template: apicurio-studio
+      spec:
+        replicas: 1
+        containers:
+        - image: ws:latest-release
+          imagePullPolicy: Always
+          name: apicurio-studio-ws
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+          env:
+             - name: APICURIO_DB_DRIVER_NAME
+               value: postgresql
+             - name: APICURIO_DB_CONNECTION_URL
+               value: jdbc:postgresql://postgresql:5432/${DB_NAME}
+             - name: APICURIO_DB_TYPE
+               value: postgresql9
+             - name: APICURIO_DB_USER_NAME
+               valueFrom:
+                 secretKeyRef:
+                   name: postgresql
+                   key: database-user
+             - name: APICURIO_DB_PASSWORD
+               valueFrom:
+                 secretKeyRef:
+                   name: postgresql
+                   key: database-password
+             - name: APICURIO_MIN_HEAP
+               value: ${WS_JVM_MIN}
+             - name: APICURIO_MAX_HEAP
+               value: ${WS_JVM_MAX}
+          resources:
+            limits:
+              cpu: ${WS_CPU_LIMIT}
+              memory: ${WS_MEM_LIMIT}
+            requests:
+              cpu: ${WS_CPU_REQUEST}
+              memory: ${WS_MEM_REQUEST}
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 15
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          terminationMessagePath: /dev/termination-log
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        terminationGracePeriodSeconds: 30
+    triggers:
+    - type: ImageChange
+      imageChangeParams:
+        automatic: true
+        containerNames:
+          - apicurio-studio-ws
+        from:
+          kind: ImageStreamTag
+          name: 'ws:latest-release'
+    - type: ConfigChange
+  status: {}

@@ -1,0 +1,94 @@
+# Apicurio UI Deployment Configuration
+# ####################################
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    creationTimestamp: null
+    labels:
+      app: apicurio-studio-ui
+      template: apicurio-studio
+    name: apicurio-studio-ui
+  spec:
+    replicas: 1
+    selector:
+      app: apicurio-studio-ui
+      deploymentconfig: apicurio-studio-ui
+    strategy:
+      type: Recreate
+      recreateParams:
+        timeoutSeconds: 600
+      resources: {}
+      activeDeadlineSeconds: 21600
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          app: apicurio-studio-ui
+          deploymentconfig: apicurio-studio-ui
+          template: apicurio-studio
+      spec:
+        replicas: 1
+        containers:
+        - image: ui:latest-release
+          imagePullPolicy: Always
+          name: apicurio-studio-ui
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+          env:
+             - name: APICURIO_KC_AUTH_URL
+               value: https://${AUTH_ROUTE}/auth
+             - name: APICURIO_KC_REALM
+               value: ${KC_REALM}
+             - name: APICURIO_UI_HUB_API_URL
+               value: https://${API_ROUTE}
+             - name: APICURIO_UI_EDITING_URL
+               value: wss://${WS_ROUTE}
+             - name: APICURIO_UI_LOGOUT_REDIRECT_URI
+               value: /
+             - name: APICURIO_MIN_HEAP
+               value: ${UI_JVM_MIN}
+             - name: APICURIO_MAX_HEAP
+               value: ${UI_JVM_MAX}
+          resources:
+            limits:
+              cpu: ${UI_CPU_LIMIT}
+              memory: ${UI_MEM_LIMIT}
+            requests:
+              cpu: ${UI_CPU_REQUEST}
+              memory: ${UI_MEM_REQUEST}
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 15
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          terminationMessagePath: /dev/termination-log
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        terminationGracePeriodSeconds: 30
+    triggers:
+    - type: ImageChange
+      imageChangeParams:
+        automatic: true
+        containerNames:
+          - apicurio-studio-ui
+        from:
+          kind: ImageStreamTag
+          name: 'ui:latest-release'
+    - type: ConfigChange
+  status: {}
